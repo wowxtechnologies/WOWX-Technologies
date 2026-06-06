@@ -1,0 +1,41 @@
+{
+  "entities": {
+    "Lead": {
+      "title": "Lead",
+      "description": "Client project inquiries and contact form submissions.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the lead." },
+        "name": { "type": "string", "description": "Full name of the contact person." },
+        "email": { "type": "string", "format": "email", "description": "Email address of the contact person." },
+        "phone": { "type": "string", "description": "Mobile or WhatsApp number of the contact." },
+        "businessName": { "type": "string", "description": "Optional business/organization name." },
+        "serviceRequired": { "type": "string", "description": "Selected service or pricing plan." },
+        "message": { "type": "string", "description": "Brief description of the project requirements." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server-validated generation timestamp." },
+        "status": { "type": "string", "enum": ["new", "contacted", "completed"], "description": "Review status of the lead tracking." }
+      },
+      "required": ["id", "name", "email", "phone", "serviceRequired", "createdAt", "status"]
+    },
+    "Subscriber": {
+      "title": "Subscriber",
+      "description": "Newsletter subscribers.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email", "description": "Subscriber email address." },
+        "subscribedAt": { "type": "string", "format": "date-time", "description": "Timestamp when user subscribed." }
+      },
+      "required": ["email", "subscribedAt"]
+    }
+  },
+  "firestore": {
+    "/leads/{leadId}": {
+      "schema": "Lead",
+      "description": "Inquiries and leads submitted by prospective clients."
+    },
+    "/subscribers/{subscriberId}": {
+      "schema": "Subscriber",
+      "description": "Newsletter subscriber list database."
+    }
+  }
+}

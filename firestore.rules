@@ -1,0 +1,86 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global safety net - Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Primitives & Identity validation helpers
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // Leads validation blueprint to prevent Shadow/Ghost fields & size bounds
+    function isValidLead(data) {
+      return data.keys().hasAll(['id', 'name', 'email', 'phone', 'serviceRequired', 'message', 'createdAt', 'status'])
+        && data.keys().size() == 8
+        && data.id is string && data.id.size() <= 128
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 200
+        && data.email is string && data.email.size() <= 200 && data.email.matches('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$')
+        && data.phone is string && data.phone.size() >= 8 && data.phone.size() <= 50
+        && data.serviceRequired is string && data.serviceRequired.size() <= 200
+        && data.message is string && data.message.size() <= 5000
+        && data.createdAt is timestamp
+        && data.status is string && data.status in ['new', 'contacted', 'completed'];
+    }
+
+    // Subscribers validation blueprint
+    function isValidSubscriber(data) {
+      return data.keys().hasAll(['email', 'subscribedAt'])
+        && data.keys().size() == 2
+        && data.email is string && data.email.size() <= 200 && data.email.matches('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$')
+        && data.subscribedAt is timestamp;
+    }
+
+    // Leads collection matching
+    match /leads/{leadId} {
+      allow get: if isAdmin();
+      allow list: if isAdmin();
+      allow create: if isValidId(leadId)
+        && isValidLead(incoming())
+        && incoming().status == 'new'
+        && incoming().createdAt == request.time;
+      allow update: if isAdmin()
+        && isValidLead(incoming())
+        && incoming().createdAt == existing().createdAt;
+      allow delete: if isAdmin();
+    }
+
+    // Newsletter subscribers collection matching
+    match /subscribers/{subscriberId} {
+      allow get: if isAdmin();
+      allow list: if isAdmin();
+      allow create: if isValidId(subscriberId)
+        && isValidSubscriber(incoming())
+        && incoming().subscribedAt == request.time;
+      allow update: if isAdmin()
+        && isValidSubscriber(incoming())
+        && incoming().subscribedAt == existing().subscribedAt;
+      allow delete: if isAdmin();
+    }
+
+    // Admins master collection - locked down
+    match /admins/{adminId} {
+      allow read: if isSignedIn() && request.auth.uid == adminId;
+      allow write: if false;
+    }
+  }
+}
